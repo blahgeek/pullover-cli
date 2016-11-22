@@ -8,6 +8,8 @@
 
 import enum
 import logging
+import asyncio
+
 import aiohttp
 import websockets
 
@@ -16,7 +18,7 @@ class PushoverException(Exception):
     pass
 
 
-class PushoverClient:
+class PulloverClient:
 
     API_ENDPOINT = 'https://api.pushover.net/1'
     WSS_ENDPOINT = 'wss://client.pushover.net/push'
@@ -76,8 +78,9 @@ class PushoverClient:
         for msg in messages:
             self.logger.info('Processing message {}'.format(msg['id']))
             callback(msg)
-        await self.update_highest_message(max(map(lambda x: x['id'],
-                                                  messages)))
+        if messages:
+            await self.update_highest_message(max(map(lambda x: x['id'],
+                                                      messages)))
 
     async def wss_init(self):
         self.logger.info('Connecting websocket')
@@ -120,6 +123,7 @@ class PushoverClient:
             except:
                 self.logger.exception('Got exception while pulling')
                 self.logger.info('Restarting websocket connection')
+                await asyncio.sleep(3)
                 continue
             finally:
                 self.wss_destroy()
@@ -127,7 +131,6 @@ class PushoverClient:
 
 if __name__ == '__main__':
     import sys
-    import asyncio
 
     logging.basicConfig(level=logging.DEBUG)
 
@@ -136,7 +139,7 @@ if __name__ == '__main__':
 
     async def main(loop):
         async with aiohttp.ClientSession(loop=loop) as session:
-            client = PushoverClient(session, secret, device_id)
+            client = PulloverClient(session, secret, device_id)
             await client.watch_loop(lambda msg: print(msg))
 
     loop = asyncio.get_event_loop()
