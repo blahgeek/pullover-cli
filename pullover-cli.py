@@ -8,22 +8,35 @@
 
 import logging
 import argparse
+import threading
 import asyncio
 import aiohttp
+import notify2
+import pyperclip
 
 import gi
-gi.require_version('Notify', '0.7')
+gi.require_version('Gtk', '3.0')
 
-from gi.repository import Notify
+from gi.repository import Gtk
 from pullover.client import PulloverClient
+
+
+logger = logging.getLogger(__name__)
+
+
+def notification_copy(notification, action, text):
+    pyperclip.copy(text)
+    logger.info('Action: notification copied')
 
 
 def notify_send(msg):
     title = msg.get('title') or msg.get('app', '')
     body = msg.get('message', '')
     if 'url' in msg:
-        body += ' [{}]'.format(msg['url'])
-    notification = Notify.Notification.new(title, body)
+        body += ' <i>{}</i>'.format(msg['url'])
+    notification = notify2.Notification(title, body)
+    notification.add_action('copy_text', 'Copy Text',
+                            notification_copy, msg.get('message', ''))
     notification.show()
 
 
@@ -54,7 +67,9 @@ if __name__ == '__main__':
     if args.loglevel:
         logging.basicConfig(level=getattr(logging, args.loglevel))
 
-    Notify.init(args.appname)
+    notify2.init(args.appname, 'glib')
+    glib_thread = threading.Thread(target=lambda: Gtk.main())
+    glib_thread.start()
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main(loop, args.secret, args.device_id,

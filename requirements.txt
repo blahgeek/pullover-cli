@@ -1,3 +1,5 @@
 aiohttp
 aiodns
 websockets
+notify2
+pyperclip
