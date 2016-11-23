@@ -20,6 +20,9 @@ class PushoverException(Exception):
 
 class PulloverClient:
 
+    KEEPALIVE_TIMEOUT = 60
+    RETRY_SLEEP = 3
+
     API_ENDPOINT = 'https://api.pushover.net/1'
     WSS_ENDPOINT = 'wss://client.pushover.net/push'
 
@@ -110,20 +113,19 @@ class PulloverClient:
             try:
                 await self.wss_init()
                 while True:
-                    push_msg = await self.wss_wait()
+                    push_msg = await asyncio.wait_for(self.wss_wait(),
+                                                      self.KEEPALIVE_TIMEOUT)
                     if push_msg is self.PushMessage.KEEPALIVE:
                         continue
-                    if push_msg is self.PushMessage.NEWMESSAGE:
+                    elif push_msg is self.PushMessage.NEWMESSAGE:
                         asyncio.ensure_future(
                             self.message_get_and_update(callback))
-                    break
-            except KeyboardInterrupt:
-                self.logger.info('Got KeyboardInterrupt')
-                break
+                    else:
+                        break
             except:
                 self.logger.exception('Got exception while pulling')
                 self.logger.info('Restarting websocket connection')
-                await asyncio.sleep(3)
+                await asyncio.sleep(self.RETRY_SLEEP)
                 continue
             finally:
                 self.wss_destroy()
