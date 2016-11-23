@@ -3,7 +3,7 @@
 # @Author: BlahGeek
 # @Date:   2016-11-22
 # @Last Modified by:   BlahGeek
-# @Last Modified time: 2016-11-22
+# @Last Modified time: 2016-11-23
 
 
 import logging
@@ -48,7 +48,7 @@ async def main(loop, secret, device_id, pull_interval):
             asyncio.ensure_future(client.message_get_and_update(notify_send))
             loop.call_later(pull_interval, _do_pull)
 
-        loop.call_soon(_do_pull)
+        loop.call_later(pull_interval, _do_pull)
         await client.watch_loop(notify_send)
 
 

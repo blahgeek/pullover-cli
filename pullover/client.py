@@ -3,7 +3,7 @@
 # @Author: BlahGeek
 # @Date:   2016-11-22
 # @Last Modified by:   BlahGeek
-# @Last Modified time: 2016-11-22
+# @Last Modified time: 2016-11-23
 
 
 import enum
@@ -106,17 +106,17 @@ class PulloverClient:
 
     async def watch_loop(self, callback):
         while True:
+            asyncio.ensure_future(self.message_get_and_update(callback))
             try:
                 await self.wss_init()
                 while True:
                     push_msg = await self.wss_wait()
                     if push_msg is self.PushMessage.KEEPALIVE:
                         continue
-                    if push_msg in (self.PushMessage.ERROR,
-                                    self.PushMessage.RELOADREQUEST):
-                        break
-                    asyncio.ensure_future(
-                        self.message_get_and_update(callback))
+                    if push_msg is self.PushMessage.NEWMESSAGE:
+                        asyncio.ensure_future(
+                            self.message_get_and_update(callback))
+                    break
             except KeyboardInterrupt:
                 self.logger.info('Got KeyboardInterrupt')
                 break
