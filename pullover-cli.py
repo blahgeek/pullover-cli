@@ -32,11 +32,11 @@ def notification_copy(notification, action, text):
 def notify_send(msg):
     title = msg.get('title') or msg.get('app', '')
     body = msg.get('message', '')
-    if 'url' in msg:
-        body += ' <i>{}</i>'.format(msg['url'])
-    notification = notify2.Notification(title, body)
-    notification.add_action('copy_text', 'Copy Text',
-                            notification_copy, msg.get('message', ''))
+    url = ' <i>{}</i>'.format(msg['url']) if 'url' in msg else ''
+
+    notification = notify2.Notification(title, body + url)
+    notification.add_action('copy_text', 'Copy Text: {:.30}'.format(body),
+                            notification_copy, body)
     notification.show()
 
 
