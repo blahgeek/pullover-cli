@@ -21,7 +21,7 @@ class PushoverException(Exception):
 class PulloverClient:
 
     KEEPALIVE_TIMEOUT = 60
-    RETRY_SLEEP = 3
+    RETRY_SLEEP = 5
 
     API_ENDPOINT = 'https://api.pushover.net/1'
     WSS_ENDPOINT = 'wss://client.pushover.net/push'
@@ -39,12 +39,14 @@ class PulloverClient:
     device_id = None
 
     wss = None
+    lock = None
 
     def __init__(self, session, secret, device_id):
         '''Init client with aiohttp session, secret and device id'''
         self.session = session
         self.secret = secret
         self.device_id = device_id
+        self.lock = asyncio.Lock()
 
     def _check_result(self, result):
         if result.get('status', 0) != 1:
@@ -75,15 +77,25 @@ class PulloverClient:
             self.logger.info('Highest message updated to {}'
                              .format(message_id))
 
-    async def message_get_and_update(self, callback):
-        self.logger.info('Get and updating messages')
-        messages = await self.messages()
-        for msg in messages:
-            self.logger.info('Processing message {}'.format(msg['id']))
-            callback(msg)
-        if messages:
-            await self.update_highest_message(max(map(lambda x: x['id'],
-                                                      messages)))
+    async def message_get_and_update(self, callback, max_retry=3):
+        self.logger.info('Get and updating messages (Retry {})'
+                         .format(max_retry))
+        async with self.lock:
+            try:
+                messages = await self.messages()
+            except:
+                self.logger.exception('Error getting messages')
+                if max_retry > 0:
+                    asyncio.ensure_future(
+                        self.message_get_and_update(callback, max_retry-1))
+                return
+            self.logger.info('Got {} messages'.format(len(messages)))
+            for msg in messages:
+                self.logger.info('Processing message {}'.format(msg['id']))
+                callback(msg)
+            if messages:
+                await self.update_highest_message(max(map(lambda x: x['id'],
+                                                          messages)))
 
     async def wss_init(self):
         self.logger.info('Connecting websocket')
@@ -103,15 +115,18 @@ class PulloverClient:
         return msg_typ
 
     def wss_destroy(self):
+        if self.wss is None:
+            return
         self.logger.info('Destroying websocket')
         asyncio.ensure_future(self.wss.close())
         self.wss = None
 
     async def watch_loop(self, callback):
         while True:
+            self.logger.info('Start watch loop')
             asyncio.ensure_future(self.message_get_and_update(callback))
             try:
-                await self.wss_init()
+                await asyncio.wait_for(self.wss_init(), self.KEEPALIVE_TIMEOUT)
                 while True:
                     push_msg = await asyncio.wait_for(self.wss_wait(),
                                                       self.KEEPALIVE_TIMEOUT)
