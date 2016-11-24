@@ -3,7 +3,7 @@
 # @Author: BlahGeek
 # @Date:   2016-11-22
 # @Last Modified by:   BlahGeek
-# @Last Modified time: 2016-11-23
+# @Last Modified time: 2016-11-24
 
 
 import enum
@@ -41,6 +41,33 @@ class PulloverClient:
     wss = None
     lock = None
 
+    @classmethod
+    async def register(cls, email, password, device_name):
+        cls.logger.info('Registering device {}'.format(device_name))
+        async with aiohttp.ClientSession() as session:
+            async with session.post(cls.API_ENDPOINT + '/users/login.json',
+                                    data={
+                                        'email': email,
+                                        'password': password,
+                                    }) as response:
+                result = await response.json()
+                cls.logger.debug('Login result: {}'.format(result))
+                cls._check_result(result)
+                secret = result['secret']
+                cls.logger.debug('Got user secert = {}'.format(secret))
+            async with session.post(cls.API_ENDPOINT + '/devices.json',
+                                    data={
+                                        'secret': secret,
+                                        'name': device_name,
+                                        'os': 'O',
+                                    }) as response:
+                result = await response.json()
+                cls.logger.debug('Register result: {}'.format(result))
+                cls._check_result(result)
+                device_id = result['id']
+                cls.logger.debug('Got new device ID = {}'.format(device_id))
+            return secret, device_id
+
     def __init__(self, session, secret, device_id):
         '''Init client with aiohttp session, secret and device id'''
         self.session = session
@@ -48,7 +75,8 @@ class PulloverClient:
         self.device_id = device_id
         self.lock = asyncio.Lock()
 
-    def _check_result(self, result):
+    @staticmethod
+    def _check_result(result):
         if result.get('status', 0) != 1:
             raise PushoverException(str(result.get('errors', 'Unknown Error')))
 
