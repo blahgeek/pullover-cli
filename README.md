@@ -9,13 +9,11 @@ Using Pushover Open Client API to pull pushover notifications realtime, and show
 Status
 -----
 
-- Still alpha
-- Device Register not implemented yet (Related API is undocumented)
+Consider it Beta. It's usable.
 
 Usage
 -----
 
-- Login to pushover web client
-- Open browser console, prints `Pushover.userSecret` and `Pushover.deviceId`
-- `pip install -r requirements.txt`, install `python-gobject`
-- `python pullover-cli.py <SECRET> <DEVICEID>`
+- Prepare: `python3`, `pip install -r requirements.txt`, install `python-gobject`
+- Register: `python pullover-cli.py register -h`
+- Run! : `python pullover-cli.py pull -h`
