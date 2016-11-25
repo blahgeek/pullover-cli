@@ -21,7 +21,7 @@ class PushoverException(Exception):
 class PulloverClient:
 
     KEEPALIVE_TIMEOUT = 60
-    RETRY_SLEEP = 5
+    RETRY_SLEEP = 30
 
     API_ENDPOINT = 'https://api.pushover.net/1'
     WSS_ENDPOINT = 'wss://client.pushover.net/push'
