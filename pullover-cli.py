@@ -3,7 +3,7 @@
 # @Author: BlahGeek
 # @Date:   2016-11-22
 # @Last Modified by:   BlahGeek
-# @Last Modified time: 2016-11-24
+# @Last Modified time: 2016-12-02
 
 
 import os
@@ -23,6 +23,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 
 from gi.repository import Gtk
+from gi.repository import GdkPixbuf
 from pullover.client import PulloverClient
 
 
@@ -45,14 +46,28 @@ def notify_send(msg):
         url = ''
 
     notification = notify2.Notification(title, body + url)
+
+    if msg.get('icon', ''):
+        notification.icon = msg['icon']
+        icon_data = GdkPixbuf.Pixbuf.new_from_file(msg['icon'])
+        notification.set_icon_from_pixbuf(icon_data)
+
+    priority = msg.get('priority', 0)
+    if priority < 0:
+        notification.set_urgency(notify2.URGENCY_LOW)
+    elif priority > 0:
+        notification.set_urgency(notify2.URGENCY_CRITICAL)
+    else:
+        notification.set_urgency(notify2.URGENCY_NORMAL)
+
     notification.add_action('copy_text', 'Copy Text: {:.30}'.format(body),
                             notification_copy, body)
     notification.show()
 
 
-async def main(loop, secret, device_id, pull_interval):
+async def main(loop, secret, device_id, pull_interval, cache_dir):
     async with aiohttp.ClientSession(loop=loop) as session:
-        client = PulloverClient(session, secret, device_id)
+        client = PulloverClient(session, secret, device_id, cache_dir)
 
         def _do_pull():
             asyncio.ensure_future(client.message_get_and_update(notify_send))
@@ -66,7 +81,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser('Pullover-CLI')
     parser.add_argument('-c', '--conf', dest='conf',
                         help='File to store user secret, default: %(default)s',
-                        default=os.path.expanduser('~/.pullover'))
+                        default=os.path.expanduser('~/.pullover/config'))
     parser.add_argument('-v', dest='loglevel',
                         choices=['DEBUG', 'INFO', 'WARNING'])
 
@@ -79,6 +94,9 @@ if __name__ == '__main__':
                             default=socket.gethostname())
 
     parser_pull = subparsers.add_parser('pull', help='Pull messages')
+    parser_pull.add_argument('--cache',
+                             help='Cache directory, default: %(default)s',
+                             default=os.path.expanduser('~/.pullover'))
     parser_pull.add_argument('--appname', default='Pullover',
                              help='App name for libnotify')
     parser_pull.add_argument('--pull-interval', type=int, default=600,
@@ -104,6 +122,7 @@ if __name__ == '__main__':
         secret, device_id = loop.run_until_complete(
                                 PulloverClient.register(
                                     args.email, password, args.name))
+        os.makedirs(os.path.dirname(args.conf))
         json.dump({
                       'email': args.email,
                       'secret': secret,
@@ -124,4 +143,4 @@ if __name__ == '__main__':
     glib_thread.start()
 
     loop.run_until_complete(main(loop, infos['secret'], infos['device_id'],
-                                 args.pull_interval))
+                                 args.pull_interval, args.cache))

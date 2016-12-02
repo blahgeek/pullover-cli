@@ -3,9 +3,10 @@
 # @Author: BlahGeek
 # @Date:   2016-11-22
 # @Last Modified by:   BlahGeek
-# @Last Modified time: 2016-11-24
+# @Last Modified time: 2016-12-02
 
 
+import os
 import enum
 import logging
 import asyncio
@@ -21,10 +22,12 @@ class PushoverException(Exception):
 class PulloverClient:
 
     KEEPALIVE_TIMEOUT = 60
+    FETCH_ICON_TIMEOUT = 5
     RETRY_SLEEP = 30
 
     API_ENDPOINT = 'https://api.pushover.net/1'
     WSS_ENDPOINT = 'wss://client.pushover.net/push'
+    ICONS_ENDPOINT = 'https://api.pushover.net/icons'
 
     class PushMessage(enum.Enum):
         KEEPALIVE = b'#'
@@ -37,6 +40,13 @@ class PulloverClient:
     session = None
     secret = None
     device_id = None
+    cache_dir = None
+
+    def _icon_cache_dir(self):
+        ret = os.path.join(self.cache_dir, 'icons')
+        if not os.path.isdir(ret):
+            os.makedirs(ret)
+        return ret
 
     wss = None
     lock = None
@@ -68,11 +78,12 @@ class PulloverClient:
                 cls.logger.debug('Got new device ID = {}'.format(device_id))
             return secret, device_id
 
-    def __init__(self, session, secret, device_id):
+    def __init__(self, session, secret, device_id, cache_dir):
         '''Init client with aiohttp session, secret and device id'''
         self.session = session
         self.secret = secret
         self.device_id = device_id
+        self.cache_dir = cache_dir
         self.lock = asyncio.Lock()
 
     @staticmethod
@@ -105,6 +116,26 @@ class PulloverClient:
             self.logger.info('Highest message updated to {}'
                              .format(message_id))
 
+    async def get_icon(self, iconid):
+        '''Download icon (if needed) to cache dir, return path'''
+        url = self.ICONS_ENDPOINT + '/{}.png'.format(iconid)
+        filename = os.path.join(self._icon_cache_dir(),
+                                '{}.png'.format(iconid))
+        filename = os.path.abspath(filename)
+
+        self.logger.debug('Looking for icon {}'.format(iconid))
+        if os.path.exists(filename):
+            self.logger.debug('Already cached')
+            return filename
+
+        self.logger.info('Downloading icon {}'.format(iconid))
+        with open(filename, 'wb') as fd:
+            async with self.session.get(url, timeout=self.FETCH_ICON_TIMEOUT) \
+                    as response:
+                data = await response.read()
+                fd.write(data)
+        return filename
+
     async def message_get_and_update(self, callback, max_retry=3):
         self.logger.info('Get and updating messages (Retry {})'
                          .format(max_retry))
@@ -120,6 +151,11 @@ class PulloverClient:
             self.logger.info('Got {} messages'.format(len(messages)))
             for msg in messages:
                 self.logger.info('Processing message {}'.format(msg['id']))
+                if 'icon' in msg:
+                    try:
+                        msg['icon'] = await self.get_icon(msg['icon'])
+                    except:
+                        self.logger.exception('Error while getting icon')
                 callback(msg)
             if messages:
                 await self.update_highest_message(max(map(lambda x: x['id'],
