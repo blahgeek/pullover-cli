@@ -9,6 +9,8 @@
 import os
 import sys
 import json
+import time
+import heapq
 import socket
 import getpass
 import logging
@@ -28,6 +30,32 @@ from pullover.client import PulloverClient
 
 
 logger = logging.getLogger(__name__)
+
+
+# Hack to notify2
+# Keep notifications for a while, for actions
+class TimeoutDict(dict):
+
+    def __init__(self, timeout, *args, **kwargs):
+        self.timeout = timeout
+        self.timers = list()
+        super().__init__(*args, **kwargs)
+
+    def _cleanup(self):
+        now = time.time()
+        while self.timers and now > self.timers[0][0] + self.timeout:
+            _, key = heapq.heappop(self.timers)
+            super().__delitem__(key)
+
+    def __setitem__(self, key, value):
+        now = time.time()
+        heapq.heappush(self.timers, (now, key))
+        self._cleanup()
+        return super().__setitem__(key, value)
+
+    def __delitem__(self, key):
+        self._cleanup()
+        # and do nothing
 
 
 def notification_copy(notification, action, text):
@@ -97,6 +125,9 @@ if __name__ == '__main__':
     parser_pull.add_argument('--cache',
                              help='Cache directory, default: %(default)s',
                              default=os.path.expanduser('~/.pullover'))
+    parser_pull.add_argument('--action-timeout', dest='action_timeout',
+                             help='Seconds allowed to use action',
+                             default=3600*24)
     parser_pull.add_argument('--appname', default='Pullover',
                              help='App name for libnotify')
     parser_pull.add_argument('--pull-interval', type=int, default=600,
@@ -138,6 +169,7 @@ if __name__ == '__main__':
     if args.subcommand == 'info':
         sys.exit(0)
 
+    notify2.notifications_registry = TimeoutDict(args.action_timeout)
     notify2.init(args.appname, 'glib')
     glib_thread = threading.Thread(target=lambda: Gtk.main())
     glib_thread.start()

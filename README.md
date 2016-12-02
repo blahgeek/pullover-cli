@@ -21,4 +21,3 @@ Usage
 TODO
 -----
 
-- Actions only works for once
