@@ -3,7 +3,7 @@
 # @Author: BlahGeek
 # @Date:   2016-11-22
 # @Last Modified by:   BlahGeek
-# @Last Modified time: 2016-12-02
+# @Last Modified time: 2016-12-05
 
 
 import os
@@ -88,7 +88,8 @@ def notify_send(msg):
     else:
         notification.set_urgency(notify2.URGENCY_NORMAL)
 
-    notification.add_action('copy_text', 'Copy Text: {:.30}'.format(body),
+    notification.add_action('copy_text', 'Copy Text: {:.30}'
+                            .format(body.replace('\n', '\\n')),
                             notification_copy, body)
     notification.show()
 
