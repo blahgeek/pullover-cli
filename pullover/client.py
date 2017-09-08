@@ -3,7 +3,7 @@
 # @Author: BlahGeek
 # @Date:   2016-11-22
 # @Last Modified by:   BlahGeek
-# @Last Modified time: 2016-12-02
+# @Last Modified time: 2016-12-08
 
 
 import os
@@ -12,7 +12,6 @@ import logging
 import asyncio
 
 import aiohttp
-import websockets
 
 
 class PushoverException(Exception):
@@ -163,12 +162,12 @@ class PulloverClient:
 
     async def wss_init(self):
         self.logger.info('Connecting websocket')
-        self.wss = await websockets.connect(self.WSS_ENDPOINT)
-        await self.wss.send('login:{}:{}\n'
-                            .format(self.device_id, self.secret))
+        self.wss = await self.session.ws_connect(self.WSS_ENDPOINT)
+        self.wss.send_str('login:{}:{}\n'
+                          .format(self.device_id, self.secret))
 
     async def wss_wait(self):
-        msg = await self.wss.recv()
+        msg = await self.wss.receive_bytes()
         self.logger.debug('wss_wait: got {}'.format(repr(msg)))
         for msg_typ in self.PushMessage:
             if msg_typ.value == msg:
