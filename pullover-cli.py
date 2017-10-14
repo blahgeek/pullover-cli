@@ -3,10 +3,11 @@
 # @Author: BlahGeek
 # @Date:   2016-11-22
 # @Last Modified by:   BlahGeek
-# @Last Modified time: 2016-12-05
+# @Last Modified time: 2017-10-14
 
 
 import os
+import re
 import sys
 import json
 import time
@@ -20,6 +21,7 @@ import asyncio
 import aiohttp
 import notify2
 import pyperclip
+import webbrowser
 
 import gi
 gi.require_version('Gtk', '3.0')
@@ -63,17 +65,19 @@ def notification_copy(notification, action, text):
     logger.info('Action: notification copied')
 
 
+def notification_openurl(notification, action, url):
+    logger.info('Opening URL: {}'.format(url))
+    webbrowser.open(url)
+
+
+URL_REGEX = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', re.MULTILINE)
+
+
 def notify_send(msg):
     title = msg.get('title') or msg.get('app', '').strip()
     body = msg.get('message', '').strip()
 
-    if 'url' in msg:
-        url = '\n<i>{}</i>'.format(msg['url'] if 'url_title' not in msg
-                                   else msg['url_title'] + ': ' + msg['url'])
-    else:
-        url = ''
-
-    notification = notify2.Notification(title, body + url)
+    notification = notify2.Notification(title, body)
 
     if msg.get('icon', ''):
         notification.icon = msg['icon']
@@ -88,9 +92,16 @@ def notify_send(msg):
     else:
         notification.set_urgency(notify2.URGENCY_NORMAL)
 
-    notification.add_action('copy_text', 'Copy Text: {:.30}'
-                            .format(body.replace('\n', '\\n')),
-                            notification_copy, body)
+    notification.add_action('copy_text', 'Copy', notification_copy, body)
+
+    urls = []
+    if re.match(URL_REGEX, msg.get('url', '')):
+        urls.append(msg['url'])
+    urls += re.findall(URL_REGEX, body)
+    for i, url in enumerate(set(urls)):
+        notification.add_action('open_url_{}'.format(i), 'Open URL',
+                                notification_openurl, url)
+
     notification.show()
 
 
