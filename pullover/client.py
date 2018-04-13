@@ -3,7 +3,7 @@
 # @Author: BlahGeek
 # @Date:   2016-11-22
 # @Last Modified by:   BlahGeek
-# @Last Modified time: 2016-12-08
+# @Last Modified time: 2018-04-13
 
 
 import os
@@ -196,6 +196,7 @@ class PulloverClient:
                     if push_msg is self.PushMessage.KEEPALIVE:
                         continue
                     elif push_msg is self.PushMessage.NEWMESSAGE:
+                        # TODO: should use await instead of ensure_future?
                         asyncio.ensure_future(
                             self.message_get_and_update(callback))
                     else:

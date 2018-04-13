@@ -3,7 +3,7 @@
 # @Author: BlahGeek
 # @Date:   2016-11-22
 # @Last Modified by:   BlahGeek
-# @Last Modified time: 2017-10-14
+# @Last Modified time: 2018-04-13
 
 
 import os
@@ -19,6 +19,7 @@ import argparse
 import threading
 import asyncio
 import aiohttp
+import dbus
 import notify2
 import pyperclip
 import webbrowser
@@ -71,6 +72,7 @@ def notification_openurl(notification, action, url):
 
 
 URL_REGEX = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', re.MULTILINE)
+notify2_init = None
 
 
 def notify_send(msg):
@@ -102,7 +104,12 @@ def notify_send(msg):
         notification.add_action('open_url_{}'.format(i), 'Open URL',
                                 notification_openurl, url)
 
-    notification.show()
+    try:
+        notification.show()
+    except dbus.exceptions.DBusException:
+        logger.warn('Re-initing notify2')
+        notify2_init()
+        notification.show()
 
 
 async def main(loop, secret, device_id, pull_interval, cache_dir):
@@ -181,8 +188,11 @@ if __name__ == '__main__':
     if args.subcommand == 'info':
         sys.exit(0)
 
-    notify2.notifications_registry = TimeoutDict(args.action_timeout)
-    notify2.init(args.appname, 'glib')
+    def notify2_init():
+        notify2.notifications_registry = TimeoutDict(args.action_timeout)
+        notify2.init(args.appname, 'glib')
+
+    notify2_init()
     glib_thread = threading.Thread(target=lambda: Gtk.main())
     glib_thread.start()
 
