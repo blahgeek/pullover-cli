@@ -17,6 +17,7 @@ Usage
 - Prepare: `python3`, `pip install -r requirements.txt`, install `python-gobject`
 - Register: `python pullover-cli.py register -h`
 - Run! : `python pullover-cli.py pull -h`
+- Also checkout `pullover.service` for systemd (TODO)
 
 TODO
 -----

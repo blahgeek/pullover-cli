@@ -1,0 +1,10 @@
+[Unit]
+Description=Pullover CLI
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+ExecStart=/home/blahgeek/.virtualenvs/pullover/bin/python /home/blahgeek/Documents/projects/pullover-cli/pullover-cli.py -v INFO pull
+
+[Install]
+WantedBy=default.target
